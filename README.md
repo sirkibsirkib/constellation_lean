@@ -1,6 +1,12 @@
-# constellation
+# Constellation (Lean)
 
-To get started, install the lean toolchain.
+## What is This?
+
+This is a workspace for some specifications of -- and implementations and reasoning around -- a collection of high-level languages under development at the University of Amsterdam's CCI research group. 
+
+## Setup
+
+Install the lean toolchain.
 Follow the instructions at `https://lean-lang.org/install`, where you will be redirected to VsCode specifically (I know) and their Lean extension, whose README will walk you through the whole thing.
 
 When last I checked, instructs you to open VSCode, install the `Lean 4` plugin, and then open a Lean4 project or file to get the prompt to install the (matching) Lean toolchain. 
