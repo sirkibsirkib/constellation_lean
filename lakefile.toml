@@ -1,0 +1,17 @@
+name = "constellation"
+version = "0.1.0"
+defaultTargets = ["constellation"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.32.0-rc1"
+
+[[lean_lib]]
+name = "Constellation"
+
+[[lean_exe]]
+name = "constellation"
+root = "Main"
+
+# Tip: run `lake exe cache get` to avoid locally compiling!
