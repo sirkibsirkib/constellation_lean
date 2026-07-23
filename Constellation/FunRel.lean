@@ -1,6 +1,6 @@
 
 abbrev Pred    (α  : Sort u) := α → Prop
-abbrev Rel     (α β: Sort u) := α → Pred β
+abbrev Rel     (α β: Sort u) := α → β → Prop
 abbrev EndoRel (α  : Sort u) := Rel α α
 
 abbrev EndoFun (α: Sort u) := α → α
@@ -57,9 +57,14 @@ theorem tr_iff_rt {α}:
       . right
         exists z
 
-notation R " ⋆ " => TrClos R
+notation:max R "⋆" => TrClos R
 
 namespace List
   def any_Prop: List Prop → Prop :=
     foldr Or False
 end List
+
+notation "∄" x "," p => ¬ (∃ x, p)
+
+def Bigstep {α: Sort u}: EndoFun (EndoRel α) :=
+  λ R x y ↦ R⋆ x y ∧ ∄ z, R x z

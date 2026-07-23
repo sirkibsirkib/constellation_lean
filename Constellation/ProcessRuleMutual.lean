@@ -1,6 +1,5 @@
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Sort
-import Constellation.PopWhere
 import Constellation.FunRel
 import Std
 open Std
