@@ -5,27 +5,52 @@ import Std
 open Std
 
 abbrev Var := String
-inductive Process: Type where
-  | halt
-  | add (v: Var)
-  | rem (v: Var)
-  | par (p1 p2: Process)
-  | seq (p1 p2: Process)
-  | atomic (p: Process)
-  | ite (v: Var) (t e: Process)
-deriving BEq
+
+mutual
+
+  inductive Process: Type where
+    | halt
+    | add (v: Var)
+    | rem (v: Var)
+    | par (p1 p2: Process)
+    | seq (p1 p2: Process)
+    | ite (v: Var) (t e: Process)
+  deriving BEq
+
+end
 
 abbrev Holds := Finset Var
 
 abbrev Pending := List Process
 
--- Whoops I am trying to define a paradox
 inductive Exec: EndoRel (Pending × Holds) where
-  | step P H p:
-      p ∈ P →
-      Exec (P, H) (P.erase p, H)
+  | halt P H:
+      Process.halt ∈ P →
+      Exec (P, H) (P.erase Process.halt, H)
 
-  | atom P H H' p:
-      p.atomic ∈ P →
-      Bigstep Exec ([p], H) ([], H') →
-      Exec (P, H) (P.erase p.atomic, H')
+  | add P H v:
+      Process.add v ∈ P →
+      Exec (P, H) (P.erase (Process.add v), insert v H)
+
+  | rem P H v:
+      Process.rem v ∈ P →
+      Exec (P, H) (P.erase (Process.rem v), H.erase v)
+
+  | par P H p1 p2:
+      p1.par p2 ∈ P →
+      Exec (P, H) (p1 :: p2 :: P.erase (p1.par p2), H)
+
+  | seq P H H' p1 p2:
+      p1.seq p2 ∈ P →
+      Exec⊹ ([p1], H) ([], H') →
+      Exec  (P, H) (p2 :: P.erase (p1.seq p2), H')
+
+  | ite_t P H v t e:
+      Process.ite v t e ∈ P →
+      v ∈ H →
+      Exec (P, H) (t :: P.erase (Process.ite v t e), H)
+
+  | ite_e P H v t e:
+      Process.ite v t e ∈ P →
+      v ∉ H →
+      Exec (P, H) (e :: P.erase (Process.ite v t e), H)

@@ -1,70 +1,61 @@
 
-abbrev Pred    (α  : Sort u) := α → Prop
 abbrev Rel     (α β: Sort u) := α → β → Prop
 abbrev EndoRel (α  : Sort u) := Rel α α
 
 abbrev EndoFun (α: Sort u) := α → α
 
-def ReflClos α: EndoFun (EndoRel α) :=
-  λ (R: EndoRel α) (x y: α) ↦ x = y ∨ R x y
+inductive ReflClos {α: Sort u} (R: EndoRel α): EndoRel α where
+  | refl x  : ReflClos R x x
+  | base x y:          R x y →
+              ReflClos R x y
 
-def TransClos α: EndoFun (EndoRel α) :=
-  λ (R: EndoRel α) (x y: α) ↦
-    R x y ∨ ∃ z, R x z ∧ R z y
 
-def TrClos {α}: EndoFun (EndoRel α) :=
-  λ R ↦ ReflClos α (TransClos α R)
+inductive TransClos {α: Sort u} (R: EndoRel α): EndoRel α where
+  | base x y  :           R x y →
+                TransClos R x y
+  | step x y z: TransClos R x y →
+                          R   y z →
+                TransClos R   y z
 
-def RtClos {α}: EndoFun (EndoRel α) :=
-  λ R ↦ TransClos α (ReflClos α R)
-
-theorem tr_iff_rt {α}:
-  ∀ (R: EndoRel α) x y,
-    TrClos R x y ↔ RtClos R x y := by
+theorem tr_rt {α: Sort u}:
+  ∀ (R: EndoRel α) (x y: α),
+    ReflClos (TransClos R) x y
+    ↔
+    TransClos (ReflClos R) x y
+:= by
   intro R x y
-  simp [TrClos, RtClos, ReflClos, TransClos]
   constructor
   . intro h
-    rcases h with _ | _ | h
-    . subst x
-      left
-      left
-      rfl
-    . left
-      right
-      assumption
-    . right
-      obtain ⟨z, ⟨P1, P2⟩⟩ := h
-      exists z
+    cases h
+    . constructor
       constructor
-      . assumption
-      . right
+    . next h =>
+      cases h
+      . constructor
+        constructor
+        assumption
+      . constructor
+        constructor
         assumption
   . intro h
-    rcases h with (h | h) | h
-    . subst x
-      left
-      rfl
-    . right
-      left
-      assumption
-    . obtain ⟨z, ⟨P1, P2⟩⟩ := h
-      right
-      rcases P2 with P2 | P2
-      . subst z
-        left
+    cases h
+    . next h =>
+      cases h
+      . constructor
+      . constructor
+        constructor
         assumption
-      . right
-        exists z
+    . next _ _ h =>
+      cases h
+      . constructor
+      . constructor
+        constructor
+        assumption
 
-notation:max R "⋆" => TrClos R
+notation:max R "⊹" => TransClos R
+notation:max R "⋆" => ReflClos (R⊹)
 
 namespace List
   def any_Prop: List Prop → Prop :=
     foldr Or False
 end List
-
-notation "∄" x "," p => ¬ (∃ x, p)
-
-def Bigstep {α: Sort u}: EndoFun (EndoRel α) :=
-  λ R x y ↦ R⋆ x y ∧ ∄ z, R x z
