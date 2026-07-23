@@ -11,6 +11,7 @@ abbrev PersistentName := String
 abbrev  EphemeralName := String
 
 abbrev PersistentNames := Finset PersistentName
+abbrev  EphemeralNames := Finset  EphemeralName
 
 inductive Name where
   | Persistent: PersistentName → Name
@@ -74,27 +75,36 @@ namespace Program
 end Program
 
 namespace Process
-  def exec (p: Process): EndoFun (Pending × Persisting) :=
+  def async (p: Process): EndoFun (Pending × Persisting) :=
     λ (pen, per) ↦ match p with
       | par   p₁ p₂ => (p₁ :: p₂ :: pen, per)
-      | trig  n     => sorry
-      | add   n     => sorry
-      | rem   n     => sorry
-      | later p     => sorry
-      | halt        => sorry
+      | add   n     => (pen, insert n per)
+      | rem   n     => (pen, per.erase n)
+      | later p     => (p :: pen, per)
+      | halt        => (pen, per)
+      | trig  _     => (p :: pen, per) -- cannot fire this asynchronously!
 end Process
+
+abbrev Firing := EphemeralNames
 
 -- Synchronous semantics
 inductive Runto {p: Program}: Rel Pending Persisting where
-  | init: Runto ∅ ∅
+  | init per:
+      Runto ∅ per
+
+  | inject pen per p:
+      Runto pen per →
+      Runto (p :: pen) per
+
   | fire_where (trig: EphemeralName) pen per:
+
       Runto pen per →
       Runto (pen ++ p.trigger_all trig per) per
+
   | eval_where (p: Process) pen per:
       p ∈ pen →
       Runto pen per →
       Runto (pen.erase p) per
-
 
 namespace Process
   def seq (p₁ p₂: Process) := p₁.par p₂.later
