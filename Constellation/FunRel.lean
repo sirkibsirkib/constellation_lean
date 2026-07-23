@@ -58,12 +58,7 @@ theorem tr_iff_rt {α}:
 
 notation R " ⋆ " => TrClos R
 
-#check List.or
-
 namespace List
   def any_Prop: List Prop → Prop :=
     foldr Or False
-
-  def any_Rel α β: List
-
 end List
