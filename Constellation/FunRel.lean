@@ -1,6 +1,7 @@
 
-abbrev Pred    (α: Sort u) := α → Prop
-abbrev EndoRel (α: Sort u) := α → Pred α
+abbrev Pred    (α  : Sort u) := α → Prop
+abbrev Rel     (α β: Sort u) := α → Pred β
+abbrev EndoRel (α  : Sort u) := Rel α α
 
 abbrev EndoFun (α: Sort u) := α → α
 
