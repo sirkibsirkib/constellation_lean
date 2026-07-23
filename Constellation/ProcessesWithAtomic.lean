@@ -37,7 +37,6 @@ mutual
         Exec (▪ :: P, H) (P, H)
 
     | add P H v:
-        Process.add v ∈ P →
         Exec (Process.add v :: P, H) (P, insert v H)
 
     | rem P H v:
@@ -85,6 +84,14 @@ theorem just_halt_completes: ∀ H, Completes ([▪], H) ([], H)
   intro _
   repeat constructor
 
+theorem halt_seq:
+  ∀ P H P' H',
+    Exec (  p :: P, H) (P', H') →
+    Exec (▪▸p :: P, H) (P', H')
+:= by
+  intro P H P' H' h
+  have i := just_halt_completes H
+  sorry
 
 theorem p_iff_p_later:
   ∀ (P P': Pending) (H H': Holds) (p: Process),
@@ -107,12 +114,16 @@ theorem p_iff_p_later:
       . unfold Process.later
         have q := just_halt_completes H
         have r := Exec.seq [] _ _ _ ▪ q
-
-        right
-        . sorry
-        . sorry
-        . sorry
-      . sorry
+        have s := q
+        cases s
+        rename_i s
+        cases s
+        rename_i s
+        sorry
+      . constructor
+        unfold Process.later
+        constructor
+        sorry
       . sorry
     . sorry
   . intro h
