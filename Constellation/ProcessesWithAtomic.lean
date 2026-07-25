@@ -25,74 +25,57 @@ deriving BEq
 
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
-infix:85 "∣∣" => Process.par
+infix:85 " ∣∣ " => Process.par
 
 abbrev Holds := Finset Var
 
-abbrev Pending := List Process
-
 mutual
-  inductive Exec: EndoRel (Pending × Holds) where
-    | halt P H:
-        Exec (▪ :: P, H) (P, H)
+  inductive Exec: EndoRel (Process × Holds) where
+    | add H v:
+        Exec (Process.add v, H) (▪, insert v H)
 
-    | add P H v:
-        Exec (Process.add v :: P, H) (P, insert v H)
+    | rem H v:
+        Exec (Process.rem v, H) (▪, H.erase v)
 
-    | rem P H v:
-        Exec (Process.rem v :: P, H) (P, H.erase v)
+    | parBase H H' p:
+        Exec (▪ ∣∣ p, H) (p, H')
 
-    | par P H p1 p2:
-        p1 ∣∣ p2 ∈ P →
-        Exec (p1 ∣∣ p2 :: P, H) (p1 :: p2 :: P, H)
+    | parLift H p1 p1' p2:
+        Exec (p1, H) (p1', H) →
+        Exec (p1 ∣∣ p2, H) (p1' ∣∣ p2, H)
 
-    | atomic H H' p:
-        Completes ([p], H) ([], H') →
-        Exec      ([p.atomic], H) ([], H')
+    | parCommute H p1 p1' p2 p2':
+        Exec (p1 ∣∣ p2, H) (p1' ∣∣ p2', H) →
+        Exec (p2 ∣∣ p1, H) (p2' ∣∣ p1', H)
 
-    | seqBase P H H' p:
-        Exec (▪ ▸ p :: P, H) (p :: P, H')
+    | atomic H H' p p2:
+        -- atomic cannot take incremental steps!
+        Completes (p, H) (▪, H') →
+        Exec      (p.atomic ∣∣ p2, H) (p2, H')
 
-    | seqStep P H H' p1 p1' p2 :
-        Exec ([p1], H) ([p1'], H') →
-        Exec (p1 ▸ p2 :: P, H) (p1' ▸ p2 :: P, H')
+    | seqBase H H' p:
+        Exec (▪ ▸ p, H) (p, H')
+
+    | seqStep H H' p1 p1' p2 :
+        Exec (p1, H) (p1', H') →
+        Exec (p1 ▸ p2, H) (p1' ▸ p2, H')
 
 
-  inductive Completes: EndoRel (Pending × Holds) where
-    | intro P H H':
-        Exec⋆     (P, H) ([], H') →
-        Completes (P, H) ([], H')
+  inductive Completes: EndoRel (Process × Holds) where
+    | intro p H H':
+        Exec⋆     (p, H) (▪, H') →
+        Completes (p, H) (▪, H')
 end
 
-theorem completes_empty:
-  ∀ P H P' H',
-    Completes (P,H) (P',H') →
-    P'=[]
+theorem par_associates:
+  ∀ (a b c a' b' c': Process) (H H': Holds),
+    Exec ( a ∣∣(b ∣∣ c), H) (a' ∣∣(b' ∣∣ c'), H) →
+    Exec ((a ∣∣ b)∣∣ c , H) ((a' ∣∣ b')∣∣ c', H)
 := by
-  intro _ _ _ _ h
-  cases h
-  rfl
-
-theorem empty_completes (H: Holds):
-  ∃ E, Completes ([], H) E
-:= by
-  exists ([], H)
-  constructor
-  constructor
-
-namespace Process
-end Process
-
-theorem just_halt_completes: ∀ H, Completes ([▪], H) ([], H)
-:= by
-  intro _
-  repeat constructor
-
-theorem halt_seq:
-  ∀ P H P' H',
-    Exec (  p :: P, H) (P', H') →
-    Exec (▪▸p :: P, H) (P', H')
-:= by
-  intro P H P' H' h
-  have i := just_halt_completes H
   sorry
+
+def norms_to p H H' :=
+  Completes (p, H) (▪, H')
+  ∧ ∀ Hx,
+    Completes (p, H) (▪, Hx) →
+    H' = Hx
