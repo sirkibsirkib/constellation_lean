@@ -19,7 +19,7 @@ inductive Process: Type where
   | rem (v: Var)
   | par (p1 p2: Process)
   | seq (p1 p2: Process)
-  -- | ite (v: Var) (t e: Process)
+  | atomic (p: Process)
 deriving BEq
 
 
@@ -46,9 +46,16 @@ mutual
         p1 ∣∣ p2 ∈ P →
         Exec (p1 ∣∣ p2 :: P, H) (p1 :: p2 :: P, H)
 
-    | seq P H H' p1 p2:
-        Completes ([p1], H) ([], H') →
-        Exec      (p1 ▸ p2 :: P, H) (p2 :: P, H')
+    | atomic H H' p:
+        Completes ([p], H) ([], H') →
+        Exec      ([p.atomic], H) ([], H')
+
+    | seqBase P H H' p:
+        Exec (▪ ▸ p :: P, H) (p :: P, H')
+
+    | seqStep P H H' p1 p1' p2 :
+        Exec ([p1], H) ([p1'], H') →
+        Exec (p1 ▸ p2 :: P, H) (p1' ▸ p2 :: P, H')
 
 
   inductive Completes: EndoRel (Pending × Holds) where
@@ -74,9 +81,6 @@ theorem empty_completes (H: Holds):
   constructor
 
 namespace Process
-  abbrev later  (p: Process): Process := ▪ ▸ p
-  abbrev atomic (p: Process): Process := p ▸ ▪
-
 end Process
 
 theorem just_halt_completes: ∀ H, Completes ([▪], H) ([], H)
@@ -92,42 +96,3 @@ theorem halt_seq:
   intro P H P' H' h
   have i := just_halt_completes H
   sorry
-
-theorem p_iff_p_later:
-  ∀ (P P': Pending) (H H': Holds) (p: Process),
-    Completes (p :: P, H) (P', H')
-    ↔
-    Completes (p.later :: P, H) (P', H')
-:= by
-  intro P P' H H' p
-  constructor
-  . intro h
-    cases h
-    constructor
-    rename_i h
-    cases h
-    rename_i h
-    constructor
-    cases h
-    . rename_i h
-      cases h
-      . unfold Process.later
-        have q := just_halt_completes H
-        have r := Exec.seq [] _ _ _ ▪ q
-        have s := q
-        cases s
-        rename_i s
-        cases s
-        rename_i s
-        sorry
-      . constructor
-        unfold Process.later
-        constructor
-        sorry
-      . sorry
-    . sorry
-  . intro h
-    cases h
-    rename_i h
-    constructor
-    sorry
