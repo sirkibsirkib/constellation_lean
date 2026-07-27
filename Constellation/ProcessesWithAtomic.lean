@@ -13,14 +13,12 @@ Let's just focus on the matter of atomicity.
 
 abbrev Var := String
 
-inductive Process: Type where
+inductive Process (State: Type): Type where
   | halt
-  | add (v: Var)
-  | rem (v: Var)
-  | par (p1 p2: Process)
-  | seq (p1 p2: Process)
-  | atomic (p: Process)
-deriving BEq
+  | update (f: State → Option State)
+  | par (p1 p2: Process State)
+  | seq (p1 p2: Process State)
+  | atomic (p: Process State)
 
 
 infix:85 "▸" => Process.seq
@@ -30,12 +28,10 @@ infix:85 " ∣∣ " => Process.par
 abbrev Holds := Finset Var
 
 mutual
-  inductive Exec: EndoRel (Process × Holds) where
-    | add H v:
-        Exec (Process.add v, H) (▪, insert v H)
-
-    | rem H v:
-        Exec (Process.rem v, H) (▪, H.erase v)
+  inductive Exec {State: Type}: EndoRel (Process State × State) where
+    | update f σ σ':
+        f σ = some σ' →
+        Exec (Process.update f, σ) (▪, σ')
 
     | parBase H H' p:
         Exec (▪ ∣∣ p, H) (p, H')
@@ -61,21 +57,22 @@ mutual
         Exec (p1 ▸ p2, H) (p1' ▸ p2, H')
 
 
-  inductive Completes: EndoRel (Process × Holds) where
-    | intro p H H':
-        Exec⋆     (p, H) (▪, H') →
-        Completes (p, H) (▪, H')
+  inductive Completes {State: Type}: EndoRel (Process State × State) where
+    | intro p σ σ':
+        Exec⋆     (p, σ) (▪, σ') →
+        Completes (p, σ) (▪, σ')
 end
 
-theorem par_associates:
-  ∀ (a b c a' b' c': Process) (H H': Holds),
-    Exec ( a ∣∣(b ∣∣ c), H) (a' ∣∣(b' ∣∣ c'), H) →
-    Exec ((a ∣∣ b)∣∣ c , H) ((a' ∣∣ b')∣∣ c', H)
+theorem par_associates (State: Type):
+  ∀ (a b c a' b' c': Process State) (σ σ': State),
+    Exec ( a ∣∣(b ∣∣ c), σ) (a' ∣∣(b' ∣∣ c'), σ') →
+    Exec ((a ∣∣ b)∣∣ c , σ) ((a' ∣∣ b')∣∣ c', σ')
 := by
   sorry
 
-def norms_to p H H' :=
-  Completes (p, H) (▪, H')
-  ∧ ∀ Hx,
-    Completes (p, H) (▪, Hx) →
-    H' = Hx
+def norms_to (State: Type) :=
+  ∀ p (σ σ': State),
+    Completes (p, σ) (▪, σ')
+    ∧ ∀ σ'',
+        Completes (p, σ') (▪, σ'') →
+        σ' = σ''
