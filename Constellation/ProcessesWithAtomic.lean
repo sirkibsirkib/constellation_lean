@@ -51,21 +51,23 @@ inductive Exec {State: Type}: EndoRel (Process State × State) where
       Exec (p1     , σ) (p1'     , σ') →
       Exec (p1 * p2, σ) (p1' * p2, σ')
 
-  | atomic σ σ' p p2:
-      -- if σ --p->| σ'
-      Exec⋆ (p            , σ) (▪ , σ') →
-      Exec  (p.atomic * p2, σ) (p2, σ')
+  | atomic σ σ' p:
+      -- if   `p` completes in any number of steps,
+      -- then `p.atomic` completes in one step
+      Exec⋆ (p       , σ) (▪, σ') →
+      Exec  (p.atomic, σ) (▪, σ')
 
   | seq_base σ σ' p:
+      -- Peel off preceding `▪ ▸`
       Exec (▪ ▸ p, σ) (p, σ')
 
   | seq_step σ σ' p1 p1' p2 :
+      -- left of `▸` can step in-place, but right cannot.
       Exec (p1     , σ) (p1'     , σ') →
       Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
 
 abbrev completes {State: Type} (σ: State) (p: Process State) (σ': State) :=
   Exec⋆ (p, σ) (▪, σ')
-
 
 namespace Process
   def norms_to {State: Type} (p: Process State) (σ σ1: State): Prop :=
@@ -75,11 +77,16 @@ namespace Process
           σ1 = σ2)
 end Process
 
-theorem halt_zero_steps {State: Type}:
-  ∀ {σ: State} {x},
-    ¬ Exec⊹ (▪, σ) x
+theorem halt_no_step {State: Type}:
+  ∀ {σ: State} {x}, ¬ Exec (▪, σ) x
 := by
-  intro σ x h
+  intro _ _ h
+  cases h
+
+theorem halt_zero_steps {State: Type}:
+  ∀ {σ: State} {x}, ¬ Exec⊹ (▪, σ) x
+:= by
+  intro _ _ h
   cases h <;> contradiction
 
 theorem halt_norms {State: Type}:
@@ -95,7 +102,7 @@ theorem halt_norms {State: Type}:
     . rfl
     . next h_some_steps =>
       exfalso
-      apply halt_zero_steps h_some_steps
+      exact halt_zero_steps h_some_steps
 
 def await (State: Type) (pred: State → Bool) :=
   Process.update (some ∘ Option.filter pred)
@@ -122,7 +129,7 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
       <;> repeat constructor
 
 
-theorem par_assoc (State: Type):
+theorem par_assoc {State: Type}:
   ∀ (a b c: Process State) (σ: State),
     Exec⋆ (a * (b * c), σ) ((a * b) * c, σ)
 := by
