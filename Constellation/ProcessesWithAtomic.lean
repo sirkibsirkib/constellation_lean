@@ -78,7 +78,9 @@ end Process
 theorem halt_zero_steps {State: Type}:
   ∀ {σ: State} {x},
     ¬ Exec⊹ (▪, σ) x
-:= by intro σ x h ; cases h <;> contradiction
+:= by
+  intro σ x h
+  cases h <;> contradiction
 
 theorem halt_norms {State: Type}:
   ∀ (σ: State),
