@@ -8,24 +8,27 @@ open Std
 Let's try an experiment.
 
 Let's ignore rules entirely for now.
-Let's just focus on the matter of atomicity.
+Let's just focus on tσe matter of atomicity.
 -/
-
-abbrev Var := String
 
 inductive Process (State: Type): Type where
   | halt
   | update (f: State → Option State)
-  | par (p1 p2: Process State)
-  | seq (p1 p2: Process State)
   | atomic (p: Process State)
+  | par    (p1 p2: Process State)
+  | seq    (p1 p2: Process State)
+  | choose (p1 p2: Process State)
+
+instance (State: Type): Mul (Process State) where
+  mul := Process.par
 
 
+infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
-infix:85 " ∣∣ " => Process.par
 
-abbrev Holds := Finset Var
+def await (State: Type) (pred: State → Bool) :=
+  Process.update (some ∘ Option.filter pred)
 
 mutual
   inductive Exec {State: Type}: EndoRel (Process State × State) where
@@ -33,29 +36,34 @@ mutual
         f σ = some σ' →
         Exec (Process.update f, σ) (▪, σ')
 
-    | parBase H H' p:
-        Exec (▪ ∣∣ p, H) (p, H')
+    | choose_left p1 p2 σ:
+        Exec (p1 \ p2, σ) (p1, σ)
 
-    | parLift H p1 p1' p2:
-        Exec (p1, H) (p1', H) →
-        Exec (p1 ∣∣ p2, H) (p1' ∣∣ p2, H)
+    | choose_comm p1 p2 p σ σ':
+        Exec (p1 \ p2, σ) (p, σ') →
+        Exec (p2 \ p1, σ) (p, σ')
 
-    | parCommute H p1 p1' p2 p2':
-        Exec (p1 ∣∣ p2, H) (p1' ∣∣ p2', H) →
-        Exec (p2 ∣∣ p1, H) (p2' ∣∣ p1', H)
+    | par_comm σ p1 p2:
+        Exec (p1 * p2, σ) (p2 * p1, σ)
 
-    | atomic H H' p p2:
+    | par_halt σ σ' p:
+        Exec (▪ * p, σ) (p, σ')
+
+    | par_left σ σ' p1 p1' p2:
+        Exec (p1     , σ) (p1'     , σ') →
+        Exec (p1 * p2, σ) (p1' * p2, σ')
+
+    | atomic σ σ' p p2:
         -- atomic cannot take incremental steps!
-        Completes (p, H) (▪, H') →
-        Exec      (p.atomic ∣∣ p2, H) (p2, H')
+        Completes (p            , σ) (▪ , σ') →
+        Exec      (p.atomic * p2, σ) (p2, σ')
 
-    | seqBase H H' p:
-        Exec (▪ ▸ p, H) (p, H')
+    | seq_base σ σ' p:
+        Exec (▪ ▸ p, σ) (p, σ')
 
-    | seqStep H H' p1 p1' p2 :
-        Exec (p1, H) (p1', H') →
-        Exec (p1 ▸ p2, H) (p1' ▸ p2, H')
-
+    | seq_step σ σ' p1 p1' p2 :
+        Exec (p1     , σ) (p1'     , σ') →
+        Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
 
   inductive Completes {State: Type}: EndoRel (Process State × State) where
     | intro p σ σ':
@@ -63,16 +71,46 @@ mutual
         Completes (p, σ) (▪, σ')
 end
 
-theorem par_associates (State: Type):
-  ∀ (a b c a' b' c': Process State) (σ σ': State),
-    Exec ( a ∣∣(b ∣∣ c), σ) (a' ∣∣(b' ∣∣ c'), σ') →
-    Exec ((a ∣∣ b)∣∣ c , σ) ((a' ∣∣ b')∣∣ c', σ')
+example (State: Type) (σ: State):
+  Completes (▪ \ ▪, σ) (▪, σ)
+:= by repeat constructor
+
+
+example (State: Type) (σ: State) (p: Process State):
+  Completes (p \ ▪, σ) (▪, σ)
 := by
-  sorry
+  constructor
+  constructor
+  constructor
+  apply Exec.choose_comm
+  constructor
+
+theorem par_assoc (State: Type):
+  ∀ (a b c a' b' c': Process State) (σ σ': State),
+    Exec ( a *(b * c), σ) (a' *(b' * c'), σ') →
+    Exec ((a * b)* c , σ) ((a' * b')* c', σ')
+:= by
+  intro a b c a' b' c' σ σ' h
+  cases h
+  . sorry
+  . sorry
+  . sorry
+  . sorry
 
 def norms_to (State: Type) :=
-  ∀ p (σ σ': State),
+  ∀ (p: Process State) (σ σ': State),
     Completes (p, σ) (▪, σ')
     ∧ ∀ σ'',
         Completes (p, σ') (▪, σ'') →
         σ' = σ''
+
+abbrev Var  := String
+abbrev Name := String
+
+inductive Update where
+  | Add  (v: Var)
+  | Rem  (v: Var)
+  | Call (n: Name)
+
+abbrev Holds := Finset Var
+abbrev ProcDecls := Name → Process Holds
