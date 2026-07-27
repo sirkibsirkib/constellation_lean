@@ -130,22 +130,22 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
 
 
 
-inductive Run
+inductive Reach
     {Name: Type}
     {decls: Name → Process (List Name) }
 : Rel (Process (List Name)) (List Name) where
 
   | init p:
-      Run p []
+      Reach p []
 
   | exec p p' l':
-      Run   p  [] →
+      Reach   p  [] →
       Exec (p, []) (p', l') →
-      Run           p'  l'
+      Reach           p'  l'
 
   | unpend p n l:
-      Run p (n :: l) →
-      Run (p * decls n) l
+      Reach p (n :: l) →
+      Reach (p * decls n) l
 
 def call (s: String): Process (List String) :=
   Process.update (some ∘ List.cons s)
@@ -154,16 +154,18 @@ def decls: String → Process (List String)
   | "main" => call "main"
   | _ => ▪
 
-theorem eg1: Run (decls := decls) ▪ [] := Run.init ▪
+abbrev Reach' := Reach (decls := decls)
 
-theorem eg2: Run (decls := decls) (call "main") [] := Run.init _
+-----------------------------
 
-theorem eg3: Exec (call "main", []) (▪, ["main"]) := by
-  apply Exec.update
-  simp
 
-theorem eg4: Run (decls := decls) ▪ ["main"] := by
-  apply Run.exec _ _ _ eg2 eg3
+example: Reach' ▪ [] := Reach.init ▪
 
-theorem eg5: Run (decls := decls) (call "main") [] := by
-  sorry
+example: Reach' (call "main") [] := Reach.init _
+
+example: Reach' ▪ ["main"] := by
+  apply Reach.exec (call "main")
+  . constructor
+  . constructor
+    unfold Function.comp
+    rfl
