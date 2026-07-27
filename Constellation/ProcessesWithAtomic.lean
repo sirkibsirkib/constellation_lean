@@ -22,7 +22,6 @@ inductive Process (State: Type): Type where
 instance (State: Type): Mul (Process State) where
   mul := Process.par
 
-
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
@@ -39,9 +38,8 @@ mutual
     | choose_left p1 p2 σ:
         Exec (p1 \ p2, σ) (p1, σ)
 
-    | choose_comm p1 p2 p σ σ':
-        Exec (p1 \ p2, σ) (p, σ') →
-        Exec (p2 \ p1, σ) (p, σ')
+    | choose_comm p1 p2 σ:
+        Exec (p2 \ p1, σ) (p1 \ p2, σ)
 
     | par_comm σ p1 p2:
         Exec (p1 * p2, σ) (p2 * p1, σ)
@@ -54,7 +52,7 @@ mutual
         Exec (p1 * p2, σ) (p1' * p2, σ')
 
     | atomic σ σ' p p2:
-        -- atomic cannot take incremental steps!
+        -- if σ --p->| σ'
         Completes (p            , σ) (▪ , σ') →
         Exec      (p.atomic * p2, σ) (p2, σ')
 
@@ -67,35 +65,42 @@ mutual
 
   inductive Completes {State: Type}: EndoRel (Process State × State) where
     | intro p σ σ':
-        Exec⋆     (p, σ) (▪, σ') →
+        Exec⊹     (p, σ) (▪, σ') →
         Completes (p, σ) (▪, σ')
 end
 
-example (State: Type) (σ: State):
-  Completes (▪ \ ▪, σ) (▪, σ)
-:= by repeat constructor
-
-
-example (State: Type) (σ: State) (p: Process State):
-  Completes (p \ ▪, σ) (▪, σ)
+theorem choose_right {State: Type} p1 p2 (σ: State)
+: Exec⊹ (p1 \ p2, σ) (p2, σ)
 := by
-  constructor
-  constructor
-  constructor
-  apply Exec.choose_comm
-  constructor
+  apply TransClos.step (y := (p2\p1, σ))
+      <;> repeat constructor
+
+theorem exec_midstep {State: Type} {x z: Process State × State}
+    (py: Process State)
+    (σy: State)
+    (h1: Exec⊹ x (py,σy))
+    (h2: Exec⊹   (py,σy) z)
+  :      Exec⊹ x         z
+:= TransClos.midstep h1 h2
+
+
+  local notation:min σ "—" p "⇥" σ' => Completes (p, σ) (▪ , σ')
+  local notation:min x "↠" y => Exec⋆ x y
+
+  example (State: Type) (σ: State) (p: Process State):
+    σ —p\▪⇥ σ
+  := by
+    constructor
+    apply TransClos.step (y := ((▪\p), σ))
+      <;> repeat constructor
+
 
 theorem par_assoc (State: Type):
-  ∀ (a b c a' b' c': Process State) (σ σ': State),
-    Exec ( a *(b * c), σ) (a' *(b' * c'), σ') →
-    Exec ((a * b)* c , σ) ((a' * b')* c', σ')
+  ∀ (a b c: Process State) (σ: State),
+    (a * (b * c), σ) ↠ ((a * b) * c, σ)
 := by
-  intro a b c a' b' c' σ σ' h
-  cases h
-  . sorry
-  . sorry
-  . sorry
-  . sorry
+  intro a b c σ
+  sorry
 
 def norms_to (State: Type) :=
   ∀ (p: Process State) (σ σ': State),
