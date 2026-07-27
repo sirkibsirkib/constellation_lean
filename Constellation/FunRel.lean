@@ -1,3 +1,10 @@
+/-
+TODO port to using these
+
+-/
+import Mathlib.Logic.Relation
+#print Relation.ReflTransGen
+#print Relation.TransGen
 
 abbrev Rel     (α β: Sort u) := α → β → Prop
 abbrev EndoRel (α  : Sort u) := Rel α α

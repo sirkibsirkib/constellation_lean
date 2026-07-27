@@ -5,10 +5,10 @@ import Std
 open Std
 
 /-
-Let's try an experiment.
-
-Let's ignore rules entirely for now.
-Let's just focus on tσe matter of atomicity.
+Let's try another approach:
+1. lay a process-oriented groundwork.
+  Focus on atomicity, sequence, concurrency, etc.
+2. build a layer of decl / reactive rules atop.
 -/
 
 inductive Process (State: Type): Type where
@@ -129,20 +129,41 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
       <;> repeat constructor
 
 
-theorem par_assoc {State: Type}:
-  ∀ (a b c: Process State) (σ: State),
-    Exec⋆ (a * (b * c), σ) ((a * b) * c, σ)
-:= by
-  intro a b c σ
+
+inductive Run
+    {Name: Type}
+    {decls: Name → Process (List Name) }
+: Rel (Process (List Name)) (List Name) where
+
+  | init p:
+      Run p []
+
+  | exec p p' l':
+      Run   p  [] →
+      Exec (p, []) (p', l') →
+      Run           p'  l'
+
+  | unpend p n l:
+      Run p (n :: l) →
+      Run (p * decls n) l
+
+def call (s: String): Process (List String) :=
+  Process.update (some ∘ List.cons s)
+
+def decls: String → Process (List String)
+  | "main" => call "main"
+  | _ => ▪
+
+theorem eg1: Run (decls := decls) ▪ [] := Run.init ▪
+
+theorem eg2: Run (decls := decls) (call "main") [] := Run.init _
+
+theorem eg3: Exec (call "main", []) (▪, ["main"]) := by
+  apply Exec.update
+  simp
+
+theorem eg4: Run (decls := decls) ▪ ["main"] := by
+  apply Run.exec _ _ _ eg2 eg3
+
+theorem eg5: Run (decls := decls) (call "main") [] := by
   sorry
-
-abbrev Var  := String
-abbrev Name := String
-
-inductive Update where
-  | Add  (v: Var)
-  | Rem  (v: Var)
-  | Call (n: Name)
-
-abbrev Holds := Finset Var
-abbrev ProcDecls := Name → Process Holds
