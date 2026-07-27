@@ -26,48 +26,65 @@ infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
 
+inductive Exec {State: Type}: EndoRel (Process State × State) where
+  | update f σ σ':
+      f σ = some σ' →
+      Exec (Process.update f, σ) (▪, σ')
+
+  | choose_left p1 p2 σ:
+      Exec (p1 \ p2, σ) (p1, σ)
+
+  | choose_comm p1 p2 σ:
+      Exec (p2 \ p1, σ) (p1 \ p2, σ)
+
+  | par_comm σ p1 p2:
+      Exec (p1 * p2, σ) (p2 * p1, σ)
+
+  | par_halt σ σ' p:
+      Exec (▪ * p, σ) (p, σ')
+
+  | par_left σ σ' p1 p1' p2:
+      Exec (p1     , σ) (p1'     , σ') →
+      Exec (p1 * p2, σ) (p1' * p2, σ')
+
+  | atomic σ σ' p p2:
+      -- if σ --p->| σ'
+      Exec⋆ (p            , σ) (▪ , σ') →
+      Exec  (p.atomic * p2, σ) (p2, σ')
+
+  | seq_base σ σ' p:
+      Exec (▪ ▸ p, σ) (p, σ')
+
+  | seq_step σ σ' p1 p1' p2 :
+      Exec (p1     , σ) (p1'     , σ') →
+      Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
+
+abbrev completes {State: Type} (σ: State) (p: Process State) (σ': State) :=
+  Exec⋆ (p, σ) (▪, σ')
+
+
+namespace Process
+  def norms_to {State: Type} (p: Process State) (σ σ1: State): Prop :=
+      completes σ p σ1
+      ∧ (∀ σ2,
+          completes σ p σ2 →
+          σ1 = σ2)
+end Process
+
+theorem halt_norms:
+  ∀ (σ: State),
+    ▪.norms_to σ σ
+:= by
+  intro σ
+  constructor
+  . constructor
+  . intro σ2 h
+    unfold completes at h
+    -- cannot do `induction h1`?
+    sorry
+
 def await (State: Type) (pred: State → Bool) :=
   Process.update (some ∘ Option.filter pred)
-
-mutual
-  inductive Exec {State: Type}: EndoRel (Process State × State) where
-    | update f σ σ':
-        f σ = some σ' →
-        Exec (Process.update f, σ) (▪, σ')
-
-    | choose_left p1 p2 σ:
-        Exec (p1 \ p2, σ) (p1, σ)
-
-    | choose_comm p1 p2 σ:
-        Exec (p2 \ p1, σ) (p1 \ p2, σ)
-
-    | par_comm σ p1 p2:
-        Exec (p1 * p2, σ) (p2 * p1, σ)
-
-    | par_halt σ σ' p:
-        Exec (▪ * p, σ) (p, σ')
-
-    | par_left σ σ' p1 p1' p2:
-        Exec (p1     , σ) (p1'     , σ') →
-        Exec (p1 * p2, σ) (p1' * p2, σ')
-
-    | atomic σ σ' p p2:
-        -- if σ --p->| σ'
-        Completes (p            , σ) (▪ , σ') →
-        Exec      (p.atomic * p2, σ) (p2, σ')
-
-    | seq_base σ σ' p:
-        Exec (▪ ▸ p, σ) (p, σ')
-
-    | seq_step σ σ' p1 p1' p2 :
-        Exec (p1     , σ) (p1'     , σ') →
-        Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
-
-  inductive Completes {State: Type}: EndoRel (Process State × State) where
-    | intro p σ σ':
-        Exec⊹     (p, σ) (▪, σ') →
-        Completes (p, σ) (▪, σ')
-end
 
 theorem choose_right {State: Type} p1 p2 (σ: State)
 : Exec⊹ (p1 \ p2, σ) (p2, σ)
@@ -83,12 +100,8 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
   :      Exec⊹ x         z
 := TransClos.midstep h1 h2
 
-
-  local notation:min σ "—" p "⇥" σ' => Completes (p, σ) (▪ , σ')
-  local notation:min x "↠" y => Exec⋆ x y
-
   example (State: Type) (σ: State) (p: Process State):
-    σ —p\▪⇥ σ
+    completes σ (p\▪) σ
   := by
     constructor
     apply TransClos.step (y := ((▪\p), σ))
@@ -97,17 +110,10 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
 
 theorem par_assoc (State: Type):
   ∀ (a b c: Process State) (σ: State),
-    (a * (b * c), σ) ↠ ((a * b) * c, σ)
+    Exec⋆ (a * (b * c), σ) ((a * b) * c, σ)
 := by
   intro a b c σ
   sorry
-
-def norms_to (State: Type) :=
-  ∀ (p: Process State) (σ σ': State),
-    Completes (p, σ) (▪, σ')
-    ∧ ∀ σ'',
-        Completes (p, σ') (▪, σ'') →
-        σ' = σ''
 
 abbrev Var  := String
 abbrev Name := String
