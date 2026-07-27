@@ -19,12 +19,16 @@ inductive Process (State: Type): Type where
   | seq    (p1 p2: Process State)
   | choose (p1 p2: Process State)
 
-instance (State: Type): Mul (Process State) where
-  mul := Process.par
-
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
+
+instance (State: Type): Mul (Process State) where
+  mul := Process.par
+
+example S: Process S := ▪
+example S: Process S := ▪\▪
+
 
 inductive Exec {State: Type}: EndoRel (Process State × State) where
   | update f σ σ':
@@ -71,17 +75,25 @@ namespace Process
           σ1 = σ2)
 end Process
 
-theorem halt_norms:
+theorem halt_zero_steps {State: Type}:
+  ∀ {σ: State} {x},
+    ¬ Exec⊹ (▪, σ) x
+:= by intro σ x h ; cases h <;> contradiction
+
+theorem halt_norms {State: Type}:
   ∀ (σ: State),
     ▪.norms_to σ σ
 := by
   intro σ
-  constructor
-  . constructor
-  . intro σ2 h
+  constructor -- ∧
+  · constructor
+  · intro σ2 h
     unfold completes at h
-    -- cannot do `induction h1`?
-    sorry
+    cases h
+    . rfl
+    . next h_some_steps =>
+      exfalso
+      apply halt_zero_steps h_some_steps
 
 def await (State: Type) (pred: State → Bool) :=
   Process.update (some ∘ Option.filter pred)
