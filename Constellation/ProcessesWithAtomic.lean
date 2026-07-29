@@ -21,10 +21,13 @@ inductive Process (State: Type): Type where
   | seq    (p1 p2: Process State)
   | choose (p1 p2: Process State)
 
+def await (State: Type) (pred: State → Bool) :=
+  Process.update (some ∘ Option.filter pred)
+
 -- Shorter notations for constructing processes
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
-notation:max "▪" => Process.halt
+notation "▪" => Process.halt
 notation "⸨" p "⸩" => Process.atomic p
 instance (State: Type): Mul (Process State) where
   mul := Process.par
@@ -119,9 +122,6 @@ theorem halt_norms {State: Type}:
       exfalso
       exact halt_zero_steps h_some_steps
 
-def await (State: Type) (pred: State → Bool) :=
-  Process.update (some ∘ Option.filter pred)
-
 theorem choose_right {State: Type} p1 p2 (σ: State)
 : Exec⊹ (p1 \ p2, σ) (p2, σ)
 := by
@@ -134,54 +134,3 @@ theorem choose_right {State: Type} p1 p2 (σ: State)
     constructor
     apply TransClos.step (y := ((▪\p), σ))
       <;> repeat constructor
-
--------------------------------
-
-inductive Reach
-    {Name: Type}
-    {decls: Name → Process (List Name) }
-: Rel (Process (List Name)) (List Name) where
-
-  | init p:
-      Reach p []
-
-  | exec p p' l':
-      Reach   p  [] →
-      Exec (p, []) (p', l') →
-      Reach           p'  l'
-
-  | unpend p n l:
-      Reach p (n :: l) →
-      Reach (p * decls n) l
-
-def call (s: String): Process (List String) :=
-  Process.update (some ∘ List.cons s)
-
-def decls: String → Process (List String)
-  | "main" => call "main"
-  | _ => ▪
-
-abbrev Reach' := Reach (decls := decls)
-
------------------------------
-
-
-example: Reach' ▪ [] := Reach.init ▪
-
-example: Reach' (call "main") [] := Reach.init _
-
-example: Reach' ▪ ["main"] := by
-  apply Reach.exec (call "main")
-  . constructor
-  . constructor
-    unfold Function.comp
-    rfl
-
-
-theorem exec_midstep {State: Type} {x z: Process State × State}
-    (py: Process State)
-    (σy: State)
-    (h1: Exec⊹ x (py,σy))
-    (h2: Exec⊹   (py,σy) z)
-  :      Exec⊹ x         z
-:= TransClos.midstep h1 h2
