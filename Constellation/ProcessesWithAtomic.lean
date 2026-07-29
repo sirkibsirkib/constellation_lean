@@ -14,7 +14,7 @@ Let's try another approach:
 -------------------------
 
 inductive Process (State: Type): Type where
-  | halt
+  | done
   | update (f: State → Option State)
   | atomic (p: Process State)
   | par    (p1 p2: Process State)
@@ -27,7 +27,7 @@ def await (State: Type) (pred: State → Bool) :=
 -- Shorter notations for constructing processes
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
-notation "▪" => Process.halt
+notation "▪" => Process.done
 notation "⸨" p "⸩" => Process.atomic p
 instance (State: Type): Mul (Process State) where
   mul := Process.par
@@ -71,7 +71,7 @@ inductive Exec {State: Type}: EndoRel (Process State × State) where
   | par_comm σ p1 p2:
       Exec (p1 * p2, σ) (p2 * p1, σ)
 
-  | par_halt σ σ' p:
+  | par_done σ σ' p:
       Exec (▪ * p, σ) (p, σ')
 
   | par_left σ σ' p1 p1' p2:
@@ -95,19 +95,19 @@ namespace Process
           σ1 = σ2)
 end Process
 
-theorem halt_no_step {State: Type}:
+theorem done_no_step {State: Type}:
   ∀ {σ: State} {x}, ¬ Exec (▪, σ) x
 := by
   intro σ ⟨p, σ'⟩ h
   cases h
 
-theorem halt_zero_steps {State: Type}:
+theorem done_zero_steps {State: Type}:
   ∀ {σ: State} {x}, ¬ Exec⊹ (▪, σ) x
 := by
   intro _ _ h
   cases h <;> contradiction
 
-theorem halt_norms {State: Type}:
+theorem done_norms {State: Type}:
   ∀ (σ: State),
     ▪.norms_to σ σ
 := by
@@ -120,7 +120,7 @@ theorem halt_norms {State: Type}:
     . rfl
     . next h_some_steps =>
       exfalso
-      exact halt_zero_steps h_some_steps
+      exact done_zero_steps h_some_steps
 
 theorem choose_right {State: Type} p1 p2 (σ: State)
 : Exec⊹ (p1 \ p2, σ) (p2, σ)
