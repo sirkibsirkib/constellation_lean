@@ -11,6 +11,8 @@ Let's try another approach:
 2. build a layer of decl / reactive rules atop.
 -/
 
+-------------------------
+
 inductive Process (State: Type): Type where
   | halt
   | update (f: State → Option State)
@@ -19,21 +21,43 @@ inductive Process (State: Type): Type where
   | seq    (p1 p2: Process State)
   | choose (p1 p2: Process State)
 
+-- Shorter notations for constructing processes
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation:max "▪" => Process.halt
-
+notation "⸨" p "⸩" => Process.atomic p
 instance (State: Type): Mul (Process State) where
   mul := Process.par
 
-example S: Process S := ▪
-example S: Process S := ▪\▪
+section ProcessExamples
 
+  variable
+    (State: Type)
+    (p q r: Process State)
 
+  example := p * ▪ \ q
+  example := (p ▸ r ) ▸ (q ▸ r)
+  example := ⸨p * p * q ▸⸨r ▸ ▪⸩⸩ ▸ ▪
+
+end ProcessExamples
+
+/-
+Operational semantics:
+  a relation over Process-State pairs
+-/
 inductive Exec {State: Type}: EndoRel (Process State × State) where
   | update f σ σ':
       f σ = some σ' →
       Exec (Process.update f, σ) (▪, σ')
+
+  | seq_base σ σ' p:
+      -- Peel off preceding `▪ ▸`
+      Exec (▪ ▸ p, σ) (p, σ')
+
+  | seq_step σ σ' p1 p1' p2 :
+      -- left of `▸` can step in-place, but right cannot.
+      Exec (p1     , σ) (p1'     , σ') →
+      Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
 
   | choose_left p1 p2 σ:
       Exec (p1 \ p2, σ) (p1, σ)
@@ -52,19 +76,10 @@ inductive Exec {State: Type}: EndoRel (Process State × State) where
       Exec (p1 * p2, σ) (p1' * p2, σ')
 
   | atomic σ σ' p:
-      -- if   `p` completes in any number of steps,
+      -- if   `p` completes after any number of steps,
       -- then `p.atomic` completes in one step
       Exec⋆ (p       , σ) (▪, σ') →
       Exec  (p.atomic, σ) (▪, σ')
-
-  | seq_base σ σ' p:
-      -- Peel off preceding `▪ ▸`
-      Exec (▪ ▸ p, σ) (p, σ')
-
-  | seq_step σ σ' p1 p1' p2 :
-      -- left of `▸` can step in-place, but right cannot.
-      Exec (p1     , σ) (p1'     , σ') →
-      Exec (p1 ▸ p2, σ) (p1' ▸ p2, σ')
 
 abbrev completes {State: Type} (σ: State) (p: Process State) (σ': State) :=
   Exec⋆ (p, σ) (▪, σ')
@@ -80,7 +95,7 @@ end Process
 theorem halt_no_step {State: Type}:
   ∀ {σ: State} {x}, ¬ Exec (▪, σ) x
 := by
-  intro _ _ h
+  intro σ ⟨p, σ'⟩ h
   cases h
 
 theorem halt_zero_steps {State: Type}:
@@ -113,14 +128,6 @@ theorem choose_right {State: Type} p1 p2 (σ: State)
   apply TransClos.step (y := (p2\p1, σ))
       <;> repeat constructor
 
-theorem exec_midstep {State: Type} {x z: Process State × State}
-    (py: Process State)
-    (σy: State)
-    (h1: Exec⊹ x (py,σy))
-    (h2: Exec⊹   (py,σy) z)
-  :      Exec⊹ x         z
-:= TransClos.midstep h1 h2
-
   example (State: Type) (σ: State) (p: Process State):
     completes σ (p\▪) σ
   := by
@@ -128,7 +135,7 @@ theorem exec_midstep {State: Type} {x z: Process State × State}
     apply TransClos.step (y := ((▪\p), σ))
       <;> repeat constructor
 
-
+-------------------------------
 
 inductive Reach
     {Name: Type}
@@ -169,3 +176,12 @@ example: Reach' ▪ ["main"] := by
   . constructor
     unfold Function.comp
     rfl
+
+
+theorem exec_midstep {State: Type} {x z: Process State × State}
+    (py: Process State)
+    (σy: State)
+    (h1: Exec⊹ x (py,σy))
+    (h2: Exec⊹   (py,σy) z)
+  :      Exec⊹ x         z
+:= TransClos.midstep h1 h2
