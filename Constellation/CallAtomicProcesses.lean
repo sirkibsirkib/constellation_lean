@@ -1,9 +1,18 @@
 import Constellation.ProcessesWithAtomic
 
+abbrev Name := String
+
+abbrev Call := Name
+abbrev State := List Name
+
+instance: Sig where
+  Update := Call
+  State  := State
+  update σ n := n :: σ
+
 inductive Reach
-    {Name: Type}
-    {decls: Name → Process (List Name) }
-: Rel (Process (List Name)) (List Name) where
+    {decls: Name → Process }
+: Rel Process State where
 
   | init p:
       Reach p []
@@ -17,10 +26,9 @@ inductive Reach
       Reach p (n :: l) →
       Reach (p * decls n) l
 
-def call (s: String): Process (List String) :=
-  Process.update (some ∘ List.cons s)
+def call: String → Process := Process.update
 
-def decls: String → Process (List String)
+def decls: String → Process
   | "main" => call "main"
   | _ => ▪
 
@@ -35,17 +43,6 @@ section Examples
   example: Reach' ▪ ["main"] := by
     apply Reach.exec (call "main")
     . constructor
-    . constructor
-      unfold Function.comp
-      rfl
+    . constructor ; rfl
 
 end Examples
-
--- Did not ultimately need this, turns out
-theorem exec_midstep {State: Type} {x z: Process State × State}
-    (py: Process State)
-    (σy: State)
-    (h1: Exec⊹ x (py,σy))
-    (h2: Exec⊹   (py,σy) z)
-  :      Exec⊹ x         z
-:= TransClos.midstep h1 h2
