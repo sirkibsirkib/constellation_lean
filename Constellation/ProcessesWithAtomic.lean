@@ -13,45 +13,45 @@ Let's try another approach:
 
 -------------------------
 
-inductive Process (State: Type): Type where
-  | done
-  | update (f: State → Option State)
-  | atomic (p: Process State)
-  | par    (p1 p2: Process State)
-  | seq    (p1 p2: Process State)
-  | choose (p1 p2: Process State)
+class Sig where
+  Update: Type
+  State: Type
+  update: State → Update → Option State
 
-def await (State: Type) (pred: State → Bool) :=
-  Process.update (some ∘ Option.filter pred)
+variable [Sig]
+
+inductive Process: Type where
+  | done
+  | update (u: Sig.Update)
+  | atomic (p: Process)
+  | par    (p1 p2: Process)
+  | seq    (p1 p2: Process)
+  | choose (p1 p2: Process)
 
 -- Shorter notations for constructing processes
 infix:85 "\\" => Process.choose
 infix:85 "▸" => Process.seq
 notation "▪" => Process.done
 notation "⸨" p "⸩" => Process.atomic p
-instance (State: Type): Mul (Process State) where
+
+instance: Mul Process where
   mul := Process.par
 
 section ProcessExamples
-
-  variable
-    (State: Type)
-    (p q r: Process State)
-
+  variable (p q r: Process)
   example := p * ▪ \ q
   example := (p ▸ r ) ▸ (q ▸ r)
   example := ⸨p * p * q ▸ ⸨r ▸ ▪⸩⸩ ▸ ▪
-
 end ProcessExamples
 
 /-
 Operational semantics:
   a relation over Process-State pairs
 -/
-inductive Exec {State: Type}: EndoRel (Process State × State) where
-  | update f σ σ':
-      f σ = some σ' →
-      Exec (Process.update f, σ) (▪, σ')
+inductive Exec: EndoRel (Process × Sig.State) where
+  | update u σ σ':
+      Sig.update σ u = some σ' →
+      Exec (Process.update u, σ) (▪, σ')
 
   | seq_base σ σ' p:
       -- Peel off preceding `▪ ▸`
@@ -84,31 +84,30 @@ inductive Exec {State: Type}: EndoRel (Process State × State) where
       Exec⋆ (p       , σ) (▪, σ') →
       Exec  (p.atomic, σ) (▪, σ')
 
-abbrev completes {State: Type} (σ: State) (p: Process State) (σ': State) :=
-  Exec⋆ (p, σ) (▪, σ')
+abbrev completes σ p σ' := Exec⋆ (p, σ) (▪, σ')
 
 namespace Process
-  def norms_to {State: Type} (p: Process State) (σ σ1: State): Prop :=
+  def norms_to (p: Process) (σ σ1: Sig.State): Prop :=
       completes σ p σ1
       ∧ (∀ σ2,
           completes σ p σ2 →
           σ1 = σ2)
 end Process
 
-theorem done_no_step {State: Type}:
-  ∀ {σ: State} {x}, ¬ Exec (▪, σ) x
+theorem done_no_step:
+  ∀ {σ: Sig.State} {x}, ¬ Exec (▪, σ) x
 := by
   intro σ ⟨p, σ'⟩ h
   cases h
 
-theorem done_zero_steps {State: Type}:
-  ∀ {σ: State} {x}, ¬ Exec⊹ (▪, σ) x
+theorem done_zero_steps:
+  ∀ {σ: Sig.State} {x}, ¬ Exec⊹ (▪, σ) x
 := by
   intro _ _ h
   cases h <;> contradiction
 
-theorem done_norms {State: Type}:
-  ∀ (σ: State),
+theorem done_norms:
+  ∀ (σ: Sig.State),
     ▪.norms_to σ σ
 := by
   intro σ
@@ -122,13 +121,13 @@ theorem done_norms {State: Type}:
       exfalso
       exact done_zero_steps h_some_steps
 
-theorem choose_right {State: Type} p1 p2 (σ: State)
+theorem choose_right p1 p2 (σ: Sig.State)
 : Exec⊹ (p1 \ p2, σ) (p2, σ)
 := by
   apply TransClos.step (y := (p2\p1, σ))
       <;> repeat constructor
 
-  example (State: Type) (σ: State) (p: Process State):
+  example (σ: Sig.State) (p: Process):
     completes σ (p\▪) σ
   := by
     constructor
