@@ -40,7 +40,7 @@ section ProcessExamples
 
   example := p * ▪ \ q
   example := (p ▸ r ) ▸ (q ▸ r)
-  example := ⸨p * p * q ▸⸨r ▸ ▪⸩⸩ ▸ ▪
+  example := ⸨p * p * q ▸ ⸨r ▸ ▪⸩⸩ ▸ ▪
 
 end ProcessExamples
 
